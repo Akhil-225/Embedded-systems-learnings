@@ -7,4 +7,4 @@ This repository contains my learning notes, projects, and experiments related to
 - USB drivers for your development board
 - Basic electronics tools (ESP32 development board, Arduino, jumper wires, breadboard)
 ## Contact
-Maintainer: Akhil ch.
+Maintainer: Akhil challa
