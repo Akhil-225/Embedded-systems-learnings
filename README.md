@@ -1,6 +1,6 @@
 # Embedded System 
 
-This repository contains my learning notes, projects, and experiments related to embedded systems and microcontroller (ESP32/Arduino).
+This repository contains my projects, and experiments related to embedded systems and microcontroller (ESP32/Arduino).
 
 ## Prerequisites
 - Toolchains (e.g., Arduino IDE, PlatformIO, STM32CubeIDE)
