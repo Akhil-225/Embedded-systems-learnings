@@ -1,10 +1,18 @@
-# Embedded System 
+# Embedded Systems
 
-This repository contains my projects, and experiments related to embedded systems and microcontroller (ESP32/Arduino).
+This repository contains my embedded systems learning notes, projects, and experiments with microcontrollers such as ESP32 and Arduino.
+
+## Structure
+
+- `embedded_c/` — Embedded C practice
+- `projects/` — Practical embedded systems projects
 
 ## Prerequisites
-- Toolchains (e.g., Arduino IDE, PlatformIO, STM32CubeIDE)
-- USB drivers for your development board
-- Basic electronics tools (ESP32 development board, Arduino, jumper wires, breadboard)
-## Contact
-Maintainer: Akhil challa
+
+- Arduino IDE or PlatformIO
+- USB drivers for the development board
+- Development boards, jumper wires, breadboard, and appropriate electronic components
+
+## Maintainer
+
+Akhil Challa
