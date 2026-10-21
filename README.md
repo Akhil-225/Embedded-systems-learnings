@@ -1,4 +1,4 @@
-# Embedded System Learnings
+# Embedded System 
 
 This repository contains my learning notes, projects, and experiments related to embedded systems and microcontroller (ESP32/Arduino).
 
