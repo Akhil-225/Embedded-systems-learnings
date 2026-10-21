@@ -1,13 +1,12 @@
 /*
   Cement Industry Pollutant Monitor
   Board: ESP32-C6
-  Sensors: DHT11, MQ-135, Sharp GP2Y1010AU0F (if these match your hardware)
-  Output: Serial Monitor; optional 16x2 I2C LCD
+  Sensors: DHT11, MQ-135, Sharp GP2Y1010AU0F
+  Output: Serial Monitor; 16x2 I2C LCD
 
   IMPORTANT:
   - Verify every GPIO against your exact ESP32-C6 board.
   - Never feed more than the ESP32-C6 ADC's permitted voltage into an input.
-  - This is an educational prototype, not a certified industrial safety instrument.
   - MQ-135 readings below are raw sensor response/voltage, NOT calibrated CO2 ppm.
   - Dust density is only an indicative estimate until calibrated against a reference meter.
 */
@@ -16,15 +15,15 @@
 #include <DHT.h>
 #include <math.h>
 
-// -------- Pin configuration: verify for your board and wiring --------
+//Pin configuration
 #define DHT_PIN       4
 #define DHT_TYPE      DHT11
 #define MQ135_PIN     0
 #define DUST_PIN      1
 #define DUST_LED_PIN  3
 
-// Set to 1 only if you have a compatible I2C 16x2 LCD connected.
-#define USE_I2C_LCD 0
+
+#define USE_I2C_LCD 1
 
 #if USE_I2C_LCD
   #include <Wire.h>
@@ -37,7 +36,7 @@
 
 DHT dht(DHT_PIN, DHT_TYPE);
 
-// -------- Adjustable parameters; calibrate for your hardware --------
+//Adjustable parameters
 const uint8_t DUST_SAMPLES = 10;
 const uint8_t MQ_SAMPLES = 10;
 const float DUST_BASELINE_V = 0.90f;
