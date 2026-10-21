@@ -1,6 +1,6 @@
 # Embedded Systems
 
-This repository contains my embedded systems learning notes, projects, and experiments with microcontrollers such as ESP32 and Arduino.
+This repository contains my embedded systems learning path it includes my projects, and experiments with microcontrollers such as ESP32 and Arduino.
 
 ## Structure
 
