@@ -1,171 +1,148 @@
-#include <WiFi.h>
-#include <WiFiClientSecure.h>
-#include <UniversalTelegramBot.h>
-#include <ArduinoJson.h>
+/*
+  IoT-Based Flood Monitoring System (standalone)
+  Board: ESP32 (verify GPIO availability on your exact board)
+  Sensor: FS-IR02 water sensor
+  Outputs: relay, active buzzer, blue status LED, red flood LED
+  Interface: Serial Monitor at 115200 baud
 
-// WIFI & TELEGRAM CONFIGURATION 
-const char* ssid = "***********";
-const char* password = "*********";
-#define BOTtoken "***********************************"
-#define CHAT_ID "**********"
+  Assumptions inherited from the original sketch:
+  - Sensor reads HIGH when water is detected and LOW when dry.
+  - Relay is activated by HIGH during a flood and LOW when dry.
+  - Blue LED indicates normal/dry status; red LED indicates flood.
+  Verify these assumptions with your actual sensor and relay module.
+  This is an educational prototype, not a certified safety system.
+*/
 
-// PIN DEFINITIONS
-const int sensorPin  = 23;   // FS-IR02 Water Sensor input
-const int relayPin   = 25;   // Relay for Water Valve and Pump
-const int buzzerPin  = 15;   // Active Buzzer pin
-const int blueLedPin = 21;   // Independent LED for remote control (GPIO 21)
-const int redLedPin  = 17;   // Status Indicator LED for Flood
+#include <Arduino.h>
 
-// SYSTEM VARIABLES
-bool isFloodDetected = false;
-bool blueLedStatus = false;
-unsigned long lastBotCheck;
-int botRequestDelay = 1000; 
+// Pin assignments — verify against your exact ESP32 board.
+const int sensorPin  = 23;  // FS-IR02 water sensor input
+const int relayPin   = 25;  // Relay for valve/pump control
+const int buzzerPin  = 15;  // Active buzzer
+const int blueLedPin = 21;  // Normal/dry status indicator
+const int redLedPin  = 17;  // Flood status indicator
 
-// Timing for non-blocking buzzer
+// Preserve the original one-second stability filter.
+const unsigned long stabilityDelay = 1000;
+unsigned long lastStateChangeTime = 0;
+bool lastValidSensorState = LOW;  // LOW = dry, HIGH = water (assumed)
+
+// Non-blocking buzzer timing.
+const unsigned long buzzerToggleInterval = 100;
 unsigned long lastBuzzerToggle = 0;
 bool buzzerState = false;
 
-// STABILITY FILTER VARIABLES (TUNED)
-unsigned long lastStateChangeTime = 0;     // Timer to check how long the signal is steady
-const unsigned long stabilityDelay = 1000; // Required time in ms for a stable signal (Tuned to 1 second)
-bool lastValidSensorState = LOW;           // Filtered/confirmed sensor state
+bool isFloodDetected = false;
 
-WiFiClientSecure client;
-UniversalTelegramBot bot(BOTtoken, client);
+void printStatus(const char* event) {
+  Serial.println();
+  Serial.println(F("========== Flood Monitor =========="));
+  Serial.print(F("Event: "));
+  Serial.println(event);
+  Serial.print(F("Sensor state: "));
+  Serial.println(lastValidSensorState == HIGH ? F("WATER DETECTED") : F("DRY"));
+  Serial.print(F("Flood status: "));
+  Serial.println(isFloodDetected ? F("FLOOD ALERT") : F("NORMAL"));
+  Serial.print(F("Relay output: "));
+  Serial.println(digitalRead(relayPin) == HIGH ? F("HIGH (active per current configuration)") : F("LOW (inactive per current configuration)"));
+  Serial.print(F("Blue LED (normal): "));
+  Serial.println(digitalRead(blueLedPin) == HIGH ? F("ON") : F("OFF"));
+  Serial.print(F("Red LED (flood): "));
+  Serial.println(digitalRead(redLedPin) == HIGH ? F("ON") : F("OFF"));
+  Serial.println(F("==================================="));
+}
 
-//  Telegram Message Handler
-void handleNewMessages(int numNewMessages) {
-  for (int i = 0; i < numNewMessages; i++) {
-    String chat_id = String(bot.messages[i].chat_id);
-    if (chat_id != CHAT_ID) continue; // Security check
+void applyDryState() {
+  digitalWrite(relayPin, LOW);
+  digitalWrite(buzzerPin, LOW);
+  buzzerState = false;
+  digitalWrite(redLedPin, LOW);
+  digitalWrite(blueLedPin, HIGH);
+}
 
-    String text = bot.messages[i].text;
-    String from_name = bot.messages[i].from_name;
+void applyFloodState() {
+  digitalWrite(relayPin, HIGH);
+  digitalWrite(redLedPin, HIGH);
+  digitalWrite(blueLedPin, LOW);
 
-    if (text == "/start") {
-      String welcome = "Welcome " + from_name + " to Flood Guard Bot.\n\n";
-      welcome += "COMMANDS:\n";
-      welcome += "/status - Check water levels & hardware state\n";
-      welcome += "/blueled on - Turn ON the remote LED (GPIO 21)\n";
-      welcome += "/blueled off - Turn OFF the remote LED (GPIO 21)\n";
-      bot.sendMessage(CHAT_ID, welcome, "");
-    }
-
-    // Explicit command to turn the Blue LED ON
-    if (text == "/blueled on") {
-      blueLedStatus = true;
-      digitalWrite(blueLedPin, HIGH);
-      bot.sendMessage(CHAT_ID, "External LED is now ON (High)", "");
-    }
-
-    // Explicit command to turn the Blue LED OFF
-    if (text == "/blueled off") {
-      blueLedStatus = false;
-      digitalWrite(blueLedPin, LOW);
-      bot.sendMessage(CHAT_ID, "External LED is now OFF (Low)", "");
-    }
-
-    if (text == "/status") {
-      String statusMsg = "--- SYSTEM REPORT ---\n";
-      statusMsg += isFloodDetected ? "💧 ALERT: FLOOD DETECTED!" : "✅ STATUS: ALL DRY";
-      statusMsg += "\nValve/Pump: ";
-      statusMsg += (digitalRead(relayPin) == HIGH) ? "CLOSED (Safe)" : "OPEN (Normal)";
-      statusMsg += "\nRed LED (GPIO 17): ";
-      statusMsg += (digitalRead(redLedPin) == HIGH) ? "ON" : "OFF";
-      statusMsg += "\nRemote LED (GPIO 21): ";
-      statusMsg += blueLedStatus ? "ON" : "OFF";
-      bot.sendMessage(CHAT_ID, statusMsg, "");
-    }
+  // Toggle buzzer without blocking sensor monitoring.
+  if (millis() - lastBuzzerToggle >= buzzerToggleInterval) {
+    lastBuzzerToggle = millis();
+    buzzerState = !buzzerState;
+    digitalWrite(buzzerPin, buzzerState ? HIGH : LOW);
   }
 }
 
-//  Setup
 void setup() {
   Serial.begin(115200);
-  
+  delay(200);
+
   pinMode(sensorPin, INPUT_PULLUP);
   pinMode(relayPin, OUTPUT);
   pinMode(buzzerPin, OUTPUT);
   pinMode(blueLedPin, OUTPUT);
   pinMode(redLedPin, OUTPUT);
-  
-  digitalWrite(relayPin, LOW);   // Valve starts open
-  digitalWrite(buzzerPin, LOW);  // Buzzer starts silent
-  digitalWrite(blueLedPin, LOW); // Remote LED starts OFF
-  digitalWrite(redLedPin, LOW);  // Red LED starts OFF
 
-  WiFi.begin(ssid, password);
-  client.setInsecure(); 
+  // Start in the original sketch's dry-state output configuration.
+  digitalWrite(relayPin, LOW);
+  digitalWrite(buzzerPin, LOW);
+  digitalWrite(blueLedPin, HIGH);
+  digitalWrite(redLedPin, LOW);
 
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
+  lastValidSensorState = digitalRead(sensorPin);
+  Serial.println();
+  Serial.println(F("Standalone Flood Monitoring System starting."));
+  Serial.println(F("Wi-Fi and Telegram are not used."));
+  Serial.println(F("Serial Monitor baud rate: 115200."));
+  Serial.println(F("Sensor assumption: HIGH = water, LOW = dry."));
+  Serial.println(F("Allow the sensor to settle; verify sensor and relay logic before use."));
+
+  // Initialize outputs to match the sensor's initial stable reading.
+  if (lastValidSensorState == HIGH) {
+    isFloodDetected = true;
+    applyFloodState();
+    printStatus("Flood state at startup");
+  } else {
+    isFloodDetected = false;
+    applyDryState();
+    printStatus("Dry state at startup");
   }
-  
-  Serial.println("\nWiFi Connected!");
-  bot.sendMessage(CHAT_ID, "System V0.3 Online: Monitoring with 1s Stability Filter...", "");
 }
 
-//  Main Loop
 void loop() {
-  // Read instant physical sensor state (HIGH = Water, LOW = Dry)
-  int currentRawInput = digitalRead(sensorPin);
+  const bool currentRawInput = digitalRead(sensorPin);
 
-  // STABILITY FILTER (DEBOUNCE) LOGIC 
+  // Stability filter: accept a state only after it remains changed
+  // continuously for the configured one-second delay.
   if (currentRawInput != lastValidSensorState) {
     if (lastStateChangeTime == 0) {
-      lastStateChangeTime = millis(); // Start counting
+      lastStateChangeTime = millis();
     }
-    
-    // If the signal stays changed continuously for 1 full second (1000ms)
+
     if (millis() - lastStateChangeTime >= stabilityDelay) {
-      lastValidSensorState = currentRawInput; // Lock in the new state
-      lastStateChangeTime = 0;                // Reset timer
+      lastValidSensorState = currentRawInput;
+      lastStateChangeTime = 0;
     }
   } else {
-    // Noise or temporary fluctuation detected, reset timer
     lastStateChangeTime = 0;
   }
 
-  // AUTOMATIC FLOOD RESPONSE (Based on Filtered State) 
-  if (lastValidSensorState == HIGH) { 
-    // Confirmed Flood Event
-    digitalWrite(relayPin, HIGH);  // Activate water valve / pump
-    digitalWrite(redLedPin, HIGH); // Light up flood indicator
-    
-    // Non-blocking rapid buzzer beep (Tuned to 100ms intervals)
-    if (millis() - lastBuzzerToggle >= 100) {
-      lastBuzzerToggle = millis();
-      buzzerState = !buzzerState;
-      digitalWrite(buzzerPin, buzzerState);
-    }
+  // Local flood response — no network calls or remote commands.
+  if (lastValidSensorState == HIGH) {
+    applyFloodState();
 
-    // Send single alert message to Telegram
     if (!isFloodDetected) {
-      bot.sendMessage(CHAT_ID, "⚠️ ALERT: 💧 FLOOD DETECTED! Water valve closed and pump activated.", "");
       isFloodDetected = true;
+      Serial.println(F("ALERT: Flood detected. Local alarm and relay activated."));
+      printStatus("Flood detected");
     }
-  } 
-  else {
-    // Confirmed Dry Conditions
-    digitalWrite(relayPin, LOW);   // Reset valve/pump
-    digitalWrite(buzzerPin, LOW);  // Turn off buzzer
-    digitalWrite(redLedPin, LOW);  // Turn off flood indicator
-    
-    if (isFloodDetected) {
-      bot.sendMessage(CHAT_ID, "✅ System Clear: Water level back to normal.", "");
-      isFloodDetected = false;
-    }
-  }
+  } else {
+    applyDryState();
 
-  // CHECK TELEGRAM COMMANDS
-  if (millis() > lastBotCheck + botRequestDelay) {
-    int numNewMessages = bot.getUpdates(bot.last_message_received + 1);
-    while (numNewMessages) {
-      handleNewMessages(numNewMessages);
-      numNewMessages = bot.getUpdates(bot.last_message_received + 1);
+    if (isFloodDetected) {
+      isFloodDetected = false;
+      Serial.println(F("Water level returned to dry state. Alarm cleared."));
+      printStatus("System clear");
     }
-    lastBotCheck = millis();
   }
 }
