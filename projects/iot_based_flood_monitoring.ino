@@ -5,14 +5,6 @@
   Outputs: relay, active buzzer, blue status LED, red flood LED
   Interface: Serial Monitor at 115200 baud
 
-  Assumptions inherited from the original sketch:
-  - Sensor reads HIGH when water is detected and LOW when dry.
-  - Relay is activated by HIGH during a flood and LOW when dry.
-  - Blue LED indicates normal/dry status; red LED indicates flood.
-  Verify these assumptions with your actual sensor and relay module.
-  This is an educational prototype, not a certified safety system.
-*/
-
 #include <Arduino.h>
 
 // Pin assignments — verify against your exact ESP32 board.
