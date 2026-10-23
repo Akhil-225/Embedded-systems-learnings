@@ -4,7 +4,7 @@
   Sensor: FS-IR02 water sensor
   Outputs: relay, active buzzer, blue status LED, red flood LED
   Interface: Serial Monitor at 115200 baud
-
+/*
 #include <Arduino.h>
 
 // Pin assignments — verify against your exact ESP32 board.
