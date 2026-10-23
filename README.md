@@ -18,7 +18,7 @@ This repository contains my embedded systems learning path, including Embedded C
 
 ## Before uploading
 
-Review project documentation and verify pin assignments, voltage limits, sensor logic, and relay polarity for your exact hardware. Use suitable driver circuitry for pumps and valves; never power loads directly from an ESP32 GPIO. The standalone flood monitor operates locally and does not require Wi-Fi or Telegram. These projects are educational prototypes, not certified safety systems.
+Review project documentation and verify pin assignments, voltage limits, sensor logic, and relay polarity for your exact hardware. Use suitable driver circuitry for pumps and valves; never power loads directly from an ESP32 GPIO. These projects are educational prototypes, not certified safety systems.
 
 ## Maintainer
 
