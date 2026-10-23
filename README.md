@@ -7,7 +7,7 @@ This repository contains my embedded systems learning path, including Embedded C
 - `embedded_c/` — Embedded C practice
 - [`projects/`](./projects/) — Embedded systems projects and project-specific setup notes
   - [Cement Industry Pollutant Monitor](./projects/cement_pollutant_monitor.ino)
-  - [IoT-Based Flood Monitoring System](./projects/iot_based_flood_monitoring.ino)
+  - [Standalone Flood Monitoring System](./projects/iot_based_flood_monitoring.ino)
 
 ## Prerequisites
 
@@ -18,7 +18,7 @@ This repository contains my embedded systems learning path, including Embedded C
 
 ## Before uploading
 
-Review the project documentation and confirm pin assignments, voltage limits, and relay/load wiring for your exact hardware. Keep Wi-Fi credentials and API/bot tokens out of version control. The flood-monitoring sketch currently disables TLS certificate verification for Telegram; do not rely on that configuration for production use.
+Review project documentation and verify pin assignments, voltage limits, sensor logic, and relay polarity for your exact hardware. Use suitable driver circuitry for pumps and valves; never power loads directly from an ESP32 GPIO. The standalone flood monitor operates locally and does not require Wi-Fi or Telegram. These projects are educational prototypes, not certified safety systems.
 
 ## Maintainer
 
