@@ -4,7 +4,6 @@
 #include <ArduinoJson.h>
 
 // --- WIFI & TELEGRAM CONFIGURATION ---
-// Replace these placeholders locally. Never commit real credentials.
 const char* ssid = "***********";
 const char* password = "*********";
 #define BOTtoken "***********************************"
@@ -21,25 +20,27 @@ const int redLedPin  = 17;   // Status Indicator LED for Flood
 bool isFloodDetected = false;
 bool blueLedStatus = false;
 unsigned long lastBotCheck;
-int botRequestDelay = 1000;
+int botRequestDelay = 1000; 
 
 // Timing for non-blocking buzzer
 unsigned long lastBuzzerToggle = 0;
 bool buzzerState = false;
 
 // --- STABILITY FILTER VARIABLES (TUNED) ---
-unsigned long lastStateChangeTime = 0;
-const unsigned long stabilityDelay = 1000;
-bool lastValidSensorState = LOW;
+unsigned long lastStateChangeTime = 0;     // Timer to check how long the signal is steady
+const unsigned long stabilityDelay = 1000; // Required time in ms for a stable signal (Tuned to 1 second)
+bool lastValidSensorState = LOW;           // Filtered/confirmed sensor state
 
 WiFiClientSecure client;
 UniversalTelegramBot bot(BOTtoken, client);
 
-// Telegram Message Handler
+// -------------------------------------------------------------
+//  Telegram Message Handler
+// -------------------------------------------------------------
 void handleNewMessages(int numNewMessages) {
   for (int i = 0; i < numNewMessages; i++) {
     String chat_id = String(bot.messages[i].chat_id);
-    if (chat_id != CHAT_ID) continue;
+    if (chat_id != CHAT_ID) continue; // Security check
 
     String text = bot.messages[i].text;
     String from_name = bot.messages[i].from_name;
@@ -53,12 +54,14 @@ void handleNewMessages(int numNewMessages) {
       bot.sendMessage(CHAT_ID, welcome, "");
     }
 
+    // Explicit command to turn the Blue LED ON
     if (text == "/blueled on") {
       blueLedStatus = true;
       digitalWrite(blueLedPin, HIGH);
       bot.sendMessage(CHAT_ID, "External LED is now ON (High)", "");
     }
 
+    // Explicit command to turn the Blue LED OFF
     if (text == "/blueled off") {
       blueLedStatus = false;
       digitalWrite(blueLedPin, LOW);
@@ -79,79 +82,90 @@ void handleNewMessages(int numNewMessages) {
   }
 }
 
+// -------------------------------------------------------------
+//  Setup
+// -------------------------------------------------------------
 void setup() {
   Serial.begin(115200);
-
+  
   pinMode(sensorPin, INPUT_PULLUP);
   pinMode(relayPin, OUTPUT);
   pinMode(buzzerPin, OUTPUT);
   pinMode(blueLedPin, OUTPUT);
   pinMode(redLedPin, OUTPUT);
-
-  digitalWrite(relayPin, LOW);
-  digitalWrite(buzzerPin, LOW);
-  digitalWrite(blueLedPin, LOW);
-  digitalWrite(redLedPin, LOW);
+  
+  digitalWrite(relayPin, LOW);   // Valve starts open
+  digitalWrite(buzzerPin, LOW);  // Buzzer starts silent
+  digitalWrite(blueLedPin, LOW); // Remote LED starts OFF
+  digitalWrite(redLedPin, LOW);  // Red LED starts OFF
 
   WiFi.begin(ssid, password);
-  // SECURITY NOTE: setInsecure() disables TLS certificate verification.
-  // Configure a trusted CA certificate before using this outside a test setup.
-  client.setInsecure();
+  client.setInsecure(); 
 
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
-
+  
   Serial.println("\nWiFi Connected!");
   bot.sendMessage(CHAT_ID, "System V0.3 Online: Monitoring with 1s Stability Filter...", "");
 }
 
+// -------------------------------------------------------------
+//  Main Loop
+// -------------------------------------------------------------
 void loop() {
   // Read instant physical sensor state (HIGH = Water, LOW = Dry)
   int currentRawInput = digitalRead(sensorPin);
 
-  // Stability filter / debounce logic
+  // --- STABILITY FILTER (DEBOUNCE) LOGIC ---
   if (currentRawInput != lastValidSensorState) {
     if (lastStateChangeTime == 0) {
-      lastStateChangeTime = millis();
+      lastStateChangeTime = millis(); // Start counting
     }
-
+    
+    // If the signal stays changed continuously for 1 full second (1000ms)
     if (millis() - lastStateChangeTime >= stabilityDelay) {
-      lastValidSensorState = currentRawInput;
-      lastStateChangeTime = 0;
+      lastValidSensorState = currentRawInput; // Lock in the new state
+      lastStateChangeTime = 0;                // Reset timer
     }
   } else {
+    // Noise or temporary fluctuation detected, reset timer
     lastStateChangeTime = 0;
   }
 
-  // Automatic flood response
-  if (lastValidSensorState == HIGH) {
-    digitalWrite(relayPin, HIGH);
-    digitalWrite(redLedPin, HIGH);
-
+  // --- AUTOMATIC FLOOD RESPONSE (Based on Filtered State) ---
+  if (lastValidSensorState == HIGH) { 
+    // Confirmed Flood Event
+    digitalWrite(relayPin, HIGH);  // Activate water valve / pump
+    digitalWrite(redLedPin, HIGH); // Light up flood indicator
+    
+    // Non-blocking rapid buzzer beep (Tuned to 100ms intervals)
     if (millis() - lastBuzzerToggle >= 100) {
       lastBuzzerToggle = millis();
       buzzerState = !buzzerState;
       digitalWrite(buzzerPin, buzzerState);
     }
 
+    // Send single alert message to Telegram
     if (!isFloodDetected) {
       bot.sendMessage(CHAT_ID, "⚠️ ALERT: 💧 FLOOD DETECTED! Water valve closed and pump activated.", "");
       isFloodDetected = true;
     }
-  } else {
-    digitalWrite(relayPin, LOW);
-    digitalWrite(buzzerPin, LOW);
-    digitalWrite(redLedPin, LOW);
-
+  } 
+  else {
+    // Confirmed Dry Conditions
+    digitalWrite(relayPin, LOW);   // Reset valve/pump
+    digitalWrite(buzzerPin, LOW);  // Turn off buzzer
+    digitalWrite(redLedPin, LOW);  // Turn off flood indicator
+    
     if (isFloodDetected) {
       bot.sendMessage(CHAT_ID, "✅ System Clear: Water level back to normal.", "");
       isFloodDetected = false;
     }
   }
 
-  // Check Telegram commands
+  // --- CHECK TELEGRAM COMMANDS ---
   if (millis() > lastBotCheck + botRequestDelay) {
     int numNewMessages = bot.getUpdates(bot.last_message_received + 1);
     while (numNewMessages) {
