@@ -89,7 +89,6 @@ void setup() {
   digitalWrite(blueLedPin, HIGH);
   digitalWrite(redLedPin, LOW);
 
-  lastValidSensorState = digitalRead(sensorPin);
   Serial.println();
   Serial.println(F("Standalone Flood Monitoring System starting."));
   Serial.println(F("Wi-Fi and Telegram are not used."));
@@ -97,16 +96,11 @@ void setup() {
   Serial.println(F("Sensor assumption: HIGH = water, LOW = dry."));
   Serial.println(F("Allow the sensor to settle; verify sensor and relay logic before use."));
 
-  // Initialize outputs to match the sensor's initial stable reading.
-  if (lastValidSensorState == HIGH) {
-    isFloodDetected = true;
-    applyFloodState();
-    printStatus("Flood state at startup");
-  } else {
-    isFloodDetected = false;
-    applyDryState();
-    printStatus("Dry state at startup");
-  }
+  // Begin in the configured dry-state output mode. The normal stability
+  // filter in loop() will confirm any HIGH/water input after one second.
+  isFloodDetected = false;
+  applyDryState();
+  printStatus("System initialized; monitoring started");
 }
 
 void loop() {
