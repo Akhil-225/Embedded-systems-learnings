@@ -1,4 +1,4 @@
-# Embedded Systems
+# Embedded Systems Learnings
 
 This repository contains my embedded systems learning path, including Embedded C practice, microcontroller experiments, and practical projects using boards such as ESP32 and Arduino.
 
