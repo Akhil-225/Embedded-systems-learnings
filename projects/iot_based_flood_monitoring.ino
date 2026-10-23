@@ -3,20 +3,20 @@
 #include <UniversalTelegramBot.h>
 #include <ArduinoJson.h>
 
-// --- WIFI & TELEGRAM CONFIGURATION ---
+// WIFI & TELEGRAM CONFIGURATION 
 const char* ssid = "***********";
 const char* password = "*********";
 #define BOTtoken "***********************************"
 #define CHAT_ID "**********"
 
-// --- PIN DEFINITIONS ---
+// PIN DEFINITIONS
 const int sensorPin  = 23;   // FS-IR02 Water Sensor input
 const int relayPin   = 25;   // Relay for Water Valve and Pump
 const int buzzerPin  = 15;   // Active Buzzer pin
 const int blueLedPin = 21;   // Independent LED for remote control (GPIO 21)
 const int redLedPin  = 17;   // Status Indicator LED for Flood
 
-// --- SYSTEM VARIABLES ---
+// SYSTEM VARIABLES
 bool isFloodDetected = false;
 bool blueLedStatus = false;
 unsigned long lastBotCheck;
@@ -26,7 +26,7 @@ int botRequestDelay = 1000;
 unsigned long lastBuzzerToggle = 0;
 bool buzzerState = false;
 
-// --- STABILITY FILTER VARIABLES (TUNED) ---
+// STABILITY FILTER VARIABLES (TUNED)
 unsigned long lastStateChangeTime = 0;     // Timer to check how long the signal is steady
 const unsigned long stabilityDelay = 1000; // Required time in ms for a stable signal (Tuned to 1 second)
 bool lastValidSensorState = LOW;           // Filtered/confirmed sensor state
@@ -34,9 +34,7 @@ bool lastValidSensorState = LOW;           // Filtered/confirmed sensor state
 WiFiClientSecure client;
 UniversalTelegramBot bot(BOTtoken, client);
 
-// -------------------------------------------------------------
 //  Telegram Message Handler
-// -------------------------------------------------------------
 void handleNewMessages(int numNewMessages) {
   for (int i = 0; i < numNewMessages; i++) {
     String chat_id = String(bot.messages[i].chat_id);
@@ -82,9 +80,7 @@ void handleNewMessages(int numNewMessages) {
   }
 }
 
-// -------------------------------------------------------------
 //  Setup
-// -------------------------------------------------------------
 void setup() {
   Serial.begin(115200);
   
@@ -111,14 +107,12 @@ void setup() {
   bot.sendMessage(CHAT_ID, "System V0.3 Online: Monitoring with 1s Stability Filter...", "");
 }
 
-// -------------------------------------------------------------
 //  Main Loop
-// -------------------------------------------------------------
 void loop() {
   // Read instant physical sensor state (HIGH = Water, LOW = Dry)
   int currentRawInput = digitalRead(sensorPin);
 
-  // --- STABILITY FILTER (DEBOUNCE) LOGIC ---
+  // STABILITY FILTER (DEBOUNCE) LOGIC 
   if (currentRawInput != lastValidSensorState) {
     if (lastStateChangeTime == 0) {
       lastStateChangeTime = millis(); // Start counting
@@ -134,7 +128,7 @@ void loop() {
     lastStateChangeTime = 0;
   }
 
-  // --- AUTOMATIC FLOOD RESPONSE (Based on Filtered State) ---
+  // AUTOMATIC FLOOD RESPONSE (Based on Filtered State) 
   if (lastValidSensorState == HIGH) { 
     // Confirmed Flood Event
     digitalWrite(relayPin, HIGH);  // Activate water valve / pump
@@ -165,7 +159,7 @@ void loop() {
     }
   }
 
-  // --- CHECK TELEGRAM COMMANDS ---
+  // CHECK TELEGRAM COMMANDS
   if (millis() > lastBotCheck + botRequestDelay) {
     int numNewMessages = bot.getUpdates(bot.last_message_received + 1);
     while (numNewMessages) {
