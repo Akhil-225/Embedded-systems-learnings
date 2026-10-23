@@ -22,6 +22,6 @@ Review project documentation and verify pin assignments, voltage limits, sensor 
 
 ## Maintainer
 
-Akhil Challa
-gmail:cakhil_be24@thapar.edu
+- Akhil Challa
+- gmail:cakhil_be24@thapar.edu
 
